@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:makeup_booking_app/core/utils/formatters.dart';
 import 'package:makeup_booking_app/core/widgets/app_network_image.dart';
 import 'package:makeup_booking_app/core/widgets/async_states.dart';
+import 'package:makeup_booking_app/features/auth/presentation/auth_guard.dart';
+import 'package:makeup_booking_app/features/auth/presentation/screen/account_screen.dart';
 import 'package:makeup_booking_app/utils/app_text_styles.dart';
 import 'package:makeup_booking_app/utils/color_resource.dart';
 
@@ -18,7 +20,22 @@ class ArtistListScreen extends ConsumerWidget {
     final artistsAsync = ref.watch(artistsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Makeup Artists')),
+      appBar: AppBar(
+        title: const Text('Makeup Artists'),
+        actions: [
+          IconButton(
+            tooltip: 'Account',
+            icon: const Icon(Icons.person_outline),
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              if (!await ensureLoggedIn(context, ref)) return;
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const AccountScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: artistsAsync.when(
         data: (artists) {
           if (artists.isEmpty) {

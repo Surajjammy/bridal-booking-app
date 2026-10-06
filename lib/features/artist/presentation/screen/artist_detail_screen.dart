@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:makeup_booking_app/core/utils/formatters.dart';
 import 'package:makeup_booking_app/core/widgets/app_network_image.dart';
+import 'package:makeup_booking_app/features/auth/presentation/auth_guard.dart';
 import 'package:makeup_booking_app/features/booking/presentation/screen/booking_screen.dart';
 import 'package:makeup_booking_app/features/portfolio/presentation/portfolio_screen.dart';
 import 'package:makeup_booking_app/utils/app_text_styles.dart';
@@ -170,12 +171,15 @@ class ArtistDetailScreen extends ConsumerWidget {
           child: ElevatedButton(
             onPressed: artist.services.isEmpty
                 ? null
-                : () => Navigator.push(
-                      context,
+                : () async {
+                    final navigator = Navigator.of(context);
+                    if (!await ensureLoggedIn(context, ref)) return;
+                    navigator.push(
                       MaterialPageRoute(
                         builder: (_) => BookingScreen(artist: artist),
                       ),
-                    ),
+                    );
+                  },
             child: const Text('Book Now'),
           ),
         ),
