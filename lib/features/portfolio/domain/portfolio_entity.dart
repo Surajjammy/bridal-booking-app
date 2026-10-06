@@ -1,15 +1,13 @@
 class PortfolioEntity {
   final String id;
-  final String image;
+  final String imageUrl;
   final String title;
   final String category;
 
-  PortfolioEntity({
+  const PortfolioEntity({
     required this.id,
-    required this.image,
+    required this.imageUrl,
     required this.title,
     required this.category,
   });
-
-  
 }
