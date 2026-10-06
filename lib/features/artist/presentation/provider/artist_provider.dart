@@ -1,25 +1,23 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:makeup_booking_app/features/portfolio/domain/portfolio_entity.dart';
 
-import '../../data/datasource/artist_datasource.dart';
+import '../../data/artist_repository.dart';
 import '../../domain/entity/artist.dart';
 
-/// 🔥 Firestore instance provider
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
   return FirebaseFirestore.instance;
 });
 
-/// 🔥 Datasource provider (dependency injection)
-final artistDatasourceProvider = Provider<ArtistDatasource>((ref) {
-  final firestore = ref.watch(firestoreProvider);
-  return ArtistDatasource(firestore: firestore);
+final artistRepositoryProvider = Provider<ArtistRepository>((ref) {
+  return ArtistRepository(ref.watch(firestoreProvider));
 });
 
-/// 🔥 Artist list provider (main provider)
-final artistProvider = FutureProvider<List<Artist>>((ref) async {
-  final datasource = ref.watch(artistDatasourceProvider);
+final artistsProvider = FutureProvider<List<Artist>>((ref) {
+  return ref.watch(artistRepositoryProvider).getArtists();
+});
 
-  final result = await datasource.getArtists();
-
-  return result; // Model extends Entity → safe return
+final portfolioProvider =
+    FutureProvider.family<List<PortfolioEntity>, String>((ref, artistId) {
+  return ref.watch(artistRepositoryProvider).getPortfolio(artistId);
 });
