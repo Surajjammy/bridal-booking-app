@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:makeup_booking_app/core/config/app_config.dart';
 import 'package:makeup_booking_app/core/utils/formatters.dart';
+import 'package:makeup_booking_app/features/artist/domain/entity/artist.dart';
 
 import '../domain/booking.dart';
 
@@ -12,6 +13,52 @@ class BookingRepository {
   String _slotId(String artistId, DateTime startAt) =>
       '${artistId}_${dateKey(startAt)}${startAt.hour.toString().padLeft(2, '0')}'
       '${startAt.minute.toString().padLeft(2, '0')}';
+
+  /// The customer's bookings, newest first. Sorted here rather than in the
+  /// query so no composite Firestore index is needed.
+  Stream<List<Booking>> watchUserBookings(String userId) {
+    return _firestore
+        .collection('bookings')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+      final bookings = snapshot.docs.map(_fromDoc).toList()
+        ..sort((a, b) => b.startAt.compareTo(a.startAt));
+      return bookings;
+    });
+  }
+
+  Booking _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final map = doc.data();
+    return Booking(
+      id: doc.id,
+      artistId: (map['artistId'] ?? '').toString(),
+      artistName: (map['artistName'] ?? '').toString(),
+      serviceName: (map['serviceName'] ?? '').toString(),
+      mode: ServiceMode.fromName(map['mode']?.toString()) ?? ServiceMode.studio,
+      address: map['address'] as String?,
+      startAt: (map['startAt'] as Timestamp).toDate(),
+      amount: (map['amount'] as num?)?.toDouble() ?? 0,
+      status: BookingStatus.values.firstWhere(
+        (s) => s.name == map['status'],
+        orElse: () => BookingStatus.requested,
+      ),
+    );
+  }
+
+  /// Marks the booking cancelled and frees its slot, atomically.
+  Future<void> cancelBooking(Booking booking) {
+    final batch = _firestore.batch();
+    batch.update(_firestore.collection('bookings').doc(booking.id), {
+      'status': BookingStatus.cancelled.name,
+    });
+    batch.delete(
+      _firestore
+          .collection('bookingSlots')
+          .doc(_slotId(booking.artistId, booking.startAt)),
+    );
+    return batch.commit();
+  }
 
   /// Start times already taken for [artistId] on [day].
   Future<Set<DateTime>> getBookedSlots(String artistId, DateTime day) async {

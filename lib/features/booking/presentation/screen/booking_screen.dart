@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:makeup_booking_app/core/config/app_config.dart';
 import 'package:makeup_booking_app/core/utils/formatters.dart';
 import 'package:makeup_booking_app/features/artist/domain/entity/artist.dart';
+import 'package:makeup_booking_app/features/auth/presentation/provider/auth_provider.dart';
 import 'package:makeup_booking_app/utils/app_text_styles.dart';
 import 'package:makeup_booking_app/utils/color_resource.dart';
 
@@ -60,11 +61,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     setState(() => _submitting = true);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    final userId = ref.read(currentUserIdProvider);
+
+    if (userId == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Please log in to book.')),
+      );
+      setState(() => _submitting = false);
+      return;
+    }
 
     try {
       await ref.read(bookingRepositoryProvider).createBooking(
             BookingRequest(
-              userId: ref.read(currentUserIdProvider),
+              userId: userId,
               artist: widget.artist,
               service: _service!,
               mode: _mode,
