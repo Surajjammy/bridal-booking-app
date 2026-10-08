@@ -107,10 +107,44 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
       _servicesError = _services.isEmpty ? 'Add at least one service' : null;
     });
 
-    return fieldsValid &&
+    final valid = fieldsValid &&
         _photoError == null &&
         _modesError == null &&
         _servicesError == null;
+
+    if (!valid) {
+      // The error may be off-screen on a long form, so say so and scroll to it.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fix the highlighted fields.')),
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) => _revealFirstError());
+    }
+    return valid;
+  }
+
+  /// Scrolls to the first text field that is showing a validation error.
+  void _revealFirstError() {
+    final root = _formKey.currentContext;
+    if (root == null) return;
+
+    var found = false;
+    void visit(Element element) {
+      if (found) return;
+      if (element is StatefulElement &&
+          element.state is FormFieldState &&
+          (element.state as FormFieldState).hasError) {
+        found = true;
+        Scrollable.ensureVisible(
+          element,
+          alignment: 0.2,
+          duration: const Duration(milliseconds: 250),
+        );
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    (root as Element).visitChildren(visit);
   }
 
   ArtistDraft _buildDraft() {
@@ -335,7 +369,7 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
           ),
           const SizedBox(height: 12),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 240),
+            constraints: const BoxConstraints(maxWidth: 320),
             child: TextFormField(
               controller: _commissionPercent,
               validator: (v) => Validators.number(v, min: 0, max: 60),
@@ -343,7 +377,7 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
               decoration: const InputDecoration(
                 labelText: 'Commission',
                 suffixText: '%',
-                helperText: 'Kept by the platform from each booking',
+                helperText: 'Platform share of each booking',
               ),
             ),
           ),
