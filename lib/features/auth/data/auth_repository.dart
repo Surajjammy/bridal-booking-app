@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthFailure implements Exception {
   final String message;
@@ -93,6 +94,7 @@ class AuthRepository {
       case 'network-request-failed':
         return 'No internet connection.';
       default:
+        debugPrint('Unhandled FirebaseAuthException: ${e.code} ${e.message}');
         return "Couldn't verify your number. Please try again.";
     }
   }
