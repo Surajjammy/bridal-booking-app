@@ -12,15 +12,15 @@ class ArtistRepository {
 
   /// Active artists only; admins deactivate an artist instead of deleting it.
   ///
-  /// TODO: once every artist doc has `isActive`, filter in the query
-  /// (`.where('isActive', isEqualTo: true)`) and have the rules require it.
-  /// Filtering client-side for now because prototype docs lack the field.
+  /// Filtered in the query, as the security rules require. Prototype
+  /// documents without `isActive` are therefore hidden until re-entered
+  /// through the admin panel.
   Future<List<Artist>> getArtists() async {
-    final snapshot = await _firestore.collection('artists').get();
-    return snapshot.docs
-        .map(ArtistModel.fromDoc)
-        .where((artist) => artist.isActive)
-        .toList();
+    final snapshot = await _firestore
+        .collection('artists')
+        .where('isActive', isEqualTo: true)
+        .get();
+    return snapshot.docs.map(ArtistModel.fromDoc).toList();
   }
 
   Future<List<PortfolioEntity>> getPortfolio(String artistId) async {

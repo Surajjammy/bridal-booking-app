@@ -25,11 +25,43 @@ Public catalogue entry, written by the admin panel.
 | reviewCount | number | |
 | serviceModes | array<string> | any of `home`, `studio` |
 | services | array<map> | `{id, name, price, durationMinutes}` |
-| isActive | bool | admins deactivate instead of deleting |
-| ownerUid | string? | Auth uid of the artist's login, set when the artist is onboarded |
+| isActive | bool | admins deactivate instead of deleting; customers only list `true` |
+| providerId | string | the business that gets paid, see `providers` |
+| createdAt, updatedAt | timestamp | |
+
+`rating` and `reviewCount` are written only by the review system, never by the
+admin form (`ArtistModel.toEditableMap` leaves them out).
 
 Prototype documents (`image`, `price`, string-only `services`) still parse; see
-`ArtistModel.fromDoc`. Migrate them through the admin panel.
+`ArtistModel.fromDoc`. They have no `isActive`, so customers do not see them
+until they are re-entered through the admin panel.
+
+## `providers/{providerId}`
+The business behind one or more artists. Admin-only: it holds commercial terms.
+Phase 1 creates one provider per individual artist, automatically. Salons
+(phase 2) are providers of type `salon` with several artists.
+
+| Field | Type | Notes |
+|---|---|---|
+| type | string | `individual` (phase 1) or `salon` (phase 2) |
+| name, city | string | kept in sync with the artist for individuals |
+| commissionRate | number | platform share, 0.15 = 15% |
+| ownerUid | string? | Auth uid allowed to manage this provider's bookings |
+| createdAt, updatedAt | timestamp | |
+
+## `artistPrivate/{artistId}`
+Admin-only artist details. Kept out of `artists` because that collection is
+readable by every customer.
+
+| Field | Type |
+|---|---|
+| contactPhone, instagram, notes | string |
+| updatedAt | timestamp |
+
+## `admins/{uid}`
+Presence of a document makes that Auth user an admin of the admin panel. Read
+by the user themselves only; no client can write it. Add an admin in the
+Firebase console: document id = the user's uid, any field (e.g. `email`).
 
 ### `artists/{artistId}/portfolio/{itemId}`
 `{imageUrl, title, category}`. This subcollection is the only portfolio store
