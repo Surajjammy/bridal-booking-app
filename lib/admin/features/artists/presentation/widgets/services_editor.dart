@@ -4,7 +4,7 @@ import 'package:makeup_booking_app/features/artist/domain/entity/artist.dart';
 import '../../../../core/theme/admin_colors.dart';
 import '../../../../core/utils/validators.dart';
 
-/// Text controllers for one editable service row.
+/// Controllers and choices for one editable service row.
 class ServiceRowControllers {
   /// Kept stable across edits: bookings refer to a service by this id.
   final String id;
@@ -12,42 +12,68 @@ class ServiceRowControllers {
   final TextEditingController price;
   final TextEditingController duration;
 
-  ServiceRowControllers._(this.id, String name, String price, String duration)
-      : name = TextEditingController(text: name),
+  /// Add-ons only: how many of this extra one booking can include.
+  final TextEditingController maxQuantity;
+
+  ServiceKind kind;
+  bool allowOnSpot;
+
+  ServiceRowControllers._({
+    required this.id,
+    required String name,
+    required String price,
+    required String duration,
+    required String maxQuantity,
+    required this.kind,
+    required this.allowOnSpot,
+  })  : name = TextEditingController(text: name),
         price = TextEditingController(text: price),
-        duration = TextEditingController(text: duration);
+        duration = TextEditingController(text: duration),
+        maxQuantity = TextEditingController(text: maxQuantity);
 
   // Disambiguates rows created within the same clock tick.
   static int _sequence = 0;
 
   factory ServiceRowControllers.empty() => ServiceRowControllers._(
-        '${DateTime.now().microsecondsSinceEpoch}_${_sequence++}',
-        '',
-        '',
-        '120',
+        id: '${DateTime.now().microsecondsSinceEpoch}_${_sequence++}',
+        name: '',
+        price: '',
+        duration: '120',
+        maxQuantity: '1',
+        kind: ServiceKind.main,
+        allowOnSpot: true,
       );
 
   factory ServiceRowControllers.fromService(ArtistService service) =>
       ServiceRowControllers._(
-        service.id,
-        service.name,
-        service.price == service.price.roundToDouble()
+        id: service.id,
+        name: service.name,
+        price: service.price == service.price.roundToDouble()
             ? service.price.toInt().toString()
             : service.price.toString(),
-        service.durationMinutes.toString(),
+        duration: service.durationMinutes.toString(),
+        maxQuantity: service.maxQuantity.toString(),
+        kind: service.kind,
+        allowOnSpot: service.allowOnSpot,
       );
+
+  bool get isAddOn => kind == ServiceKind.addOn;
 
   ArtistService toService() => ArtistService(
         id: id,
         name: name.text.trim(),
         price: double.parse(price.text.trim()),
         durationMinutes: int.parse(duration.text.trim()),
+        kind: kind,
+        maxQuantity: isAddOn ? int.parse(maxQuantity.text.trim()) : 1,
+        allowOnSpot: allowOnSpot,
       );
 
   void dispose() {
     name.dispose();
     price.dispose();
     duration.dispose();
+    maxQuantity.dispose();
   }
 }
 
@@ -63,6 +89,9 @@ class ServicesEditorController extends ChangeNotifier {
 
   bool get isEmpty => _rows.isEmpty;
 
+  /// True when at least one row is a main service customers can book.
+  bool get hasMainService => _rows.any((r) => !r.isAddOn);
+
   void add() {
     _rows.add(ServiceRowControllers.empty());
     notifyListeners();
@@ -73,6 +102,16 @@ class ServicesEditorController extends ChangeNotifier {
       row.dispose();
       notifyListeners();
     }
+  }
+
+  void setKind(ServiceRowControllers row, ServiceKind kind) {
+    row.kind = kind;
+    notifyListeners();
+  }
+
+  void setAllowOnSpot(ServiceRowControllers row, bool value) {
+    row.allowOnSpot = value;
+    notifyListeners();
   }
 
   /// Call only after the form validated every row.
@@ -108,10 +147,13 @@ class ServicesEditor extends StatelessWidget {
             for (final row in controller.rows)
               Padding(
                 key: ValueKey(row.id),
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: _ServiceRow(
                   row: row,
                   onRemove: () => controller.remove(row),
+                  onKindChanged: (kind) => controller.setKind(row, kind),
+                  onAllowOnSpotChanged: (v) =>
+                      controller.setAllowOnSpot(row, v),
                 ),
               ),
             if (errorText != null)
@@ -142,8 +184,15 @@ class _ServiceRow extends StatelessWidget {
 
   final ServiceRowControllers row;
   final VoidCallback onRemove;
+  final ValueChanged<ServiceKind> onKindChanged;
+  final ValueChanged<bool> onAllowOnSpotChanged;
 
-  const _ServiceRow({required this.row, required this.onRemove});
+  const _ServiceRow({
+    required this.row,
+    required this.onRemove,
+    required this.onKindChanged,
+    required this.onAllowOnSpotChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -181,19 +230,32 @@ class _ServiceRow extends StatelessWidget {
       icon: const Icon(Icons.delete_outline, color: AdminColors.danger),
     );
 
+    final kindControls = _KindControls(
+      row: row,
+      onKindChanged: onKindChanged,
+      onAllowOnSpotChanged: onAllowOnSpotChanged,
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= _wideBreakpoint) {
-          return Row(
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(flex: 4, child: nameField),
-              const SizedBox(width: 12),
-              Expanded(flex: 2, child: priceField),
-              const SizedBox(width: 12),
-              Expanded(flex: 2, child: durationField),
-              const SizedBox(width: 4),
-              removeButton,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 4, child: nameField),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: priceField),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: durationField),
+                  const SizedBox(width: 4),
+                  removeButton,
+                ],
+              ),
+              const SizedBox(height: 10),
+              kindControls,
             ],
           );
         }
@@ -211,9 +273,73 @@ class _ServiceRow extends StatelessWidget {
                 removeButton,
               ],
             ),
+            const SizedBox(height: 10),
+            kindControls,
           ],
         );
       },
+    );
+  }
+}
+
+/// Main service or add-on, plus the extra settings an add-on has.
+class _KindControls extends StatelessWidget {
+  final ServiceRowControllers row;
+  final ValueChanged<ServiceKind> onKindChanged;
+  final ValueChanged<bool> onAllowOnSpotChanged;
+
+  const _KindControls({
+    required this.row,
+    required this.onKindChanged,
+    required this.onAllowOnSpotChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SegmentedButton<ServiceKind>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: ServiceKind.main, label: Text('Service')),
+            ButtonSegment(value: ServiceKind.addOn, label: Text('Add-on')),
+          ],
+          selected: {row.kind},
+          onSelectionChanged: (s) => onKindChanged(s.first),
+        ),
+        if (row.isAddOn) ...[
+          SizedBox(
+            width: 170,
+            child: TextFormField(
+              controller: row.maxQuantity,
+              validator: (v) =>
+                  Validators.number(v, min: 1, max: 10) ??
+                  (int.tryParse(v!.trim()) == null ? 'Whole numbers only' : null),
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Max per booking',
+                isDense: true,
+              ),
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Checkbox(
+                value: row.allowOnSpot,
+                onChanged: (v) => onAllowOnSpotChanged(v ?? true),
+              ),
+              Text(
+                'Can be added at the chair',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }

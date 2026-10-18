@@ -9,7 +9,7 @@ class AppConfig {
   /// [commissionRate]; each provider can be given its own in the admin panel.
   static const double repeatCommissionRate = 0.05;
 
-  /// Daily start times offered for booking. Per-artist availability replaces
-  /// this once artists can manage their own calendar.
-  static const List<int> defaultSlotHours = [10, 12, 14, 16, 18];
+  /// Granularity of the booking calendar. Every booking blocks whole steps,
+  /// rounded up, so a 50-minute service blocks two 30-minute steps.
+  static const int slotStepMinutes = 30;
 }

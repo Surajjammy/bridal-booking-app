@@ -106,10 +106,16 @@ class ArtistDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   const _SectionTitle('Services'),
                   const SizedBox(height: 10),
-                  if (artist.services.isEmpty)
+                  if (artist.mainServices.isEmpty)
                     Text('Services coming soon.', style: AppTextStyles.body)
                   else
-                    ...artist.services.map(_ServiceTile.new),
+                    ...artist.mainServices.map(_ServiceTile.new),
+                  if (artist.addOns.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    const _SectionTitle('Extras you can add'),
+                    const SizedBox(height: 10),
+                    ...artist.addOns.map(_ServiceTile.new),
+                  ],
                   const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -169,7 +175,7 @@ class ArtistDetailScreen extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: ElevatedButton(
-            onPressed: artist.services.isEmpty
+            onPressed: artist.mainServices.isEmpty
                 ? null
                 : () async {
                     final navigator = Navigator.of(context);
@@ -235,8 +241,7 @@ class _ServiceTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${service.durationMinutes ~/ 60}h ${service.durationMinutes % 60}m'
-                      .replaceAll(' 0m', ''),
+                  formatDuration(service.durationMinutes),
                   style: AppTextStyles.body.copyWith(fontSize: 12),
                 ),
               ],

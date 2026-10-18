@@ -23,6 +23,15 @@ class ArtistDraft {
   final List<ArtistService> services;
   final bool isActive;
 
+  final WorkingHours workingHours;
+
+  /// Weekdays the artist does not work, using [DateTime.weekday] (Monday = 1).
+  final Set<int> weeklyOffDays;
+
+  /// Free time kept after a studio booking, and after a home visit (travel).
+  final int bufferMinutes;
+  final int travelBufferMinutes;
+
   /// Share of each booking kept by the platform, as a fraction (0.15 = 15%).
   final double commissionRate;
 
@@ -37,6 +46,10 @@ class ArtistDraft {
     required this.serviceModes,
     required this.services,
     required this.isActive,
+    required this.workingHours,
+    required this.weeklyOffDays,
+    required this.bufferMinutes,
+    required this.travelBufferMinutes,
     required this.commissionRate,
     required this.repeatCommissionRate,
     required this.privateDetails,
@@ -61,6 +74,10 @@ class ArtistDraft {
       services: services,
       isActive: isActive,
       providerId: providerId,
+      workingHours: workingHours,
+      weeklyOffDays: weeklyOffDays,
+      bufferMinutes: bufferMinutes,
+      travelBufferMinutes: travelBufferMinutes,
     );
   }
 }
