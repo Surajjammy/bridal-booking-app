@@ -20,6 +20,10 @@ class AuthRepository {
 
   User? get currentUser => _auth.currentUser;
 
+  /// The signed-in user's uid right now, or null. Available immediately,
+  /// including when a saved session is restored on launch.
+  String? get currentUserId => _auth.currentUser?.uid;
+
   /// Starts phone verification for an E.164 number such as `+919876543210`.
   ///
   /// [onCodeSent] fires when the SMS is on its way. On some Android devices

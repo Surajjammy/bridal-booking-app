@@ -13,6 +13,13 @@ final authStateProvider = StreamProvider<User?>((ref) {
 });
 
 /// The signed-in user's uid, or null when logged out.
+///
+/// The stream has no value for a moment after launch, even when a saved
+/// session is being restored. Reading only the stream at that moment would
+/// wrongly say "nobody is logged in", so until it delivers we ask the auth
+/// repository directly, which already knows.
 final currentUserIdProvider = Provider<String?>((ref) {
-  return ref.watch(authStateProvider).value?.uid;
+  final fromStream = ref.watch(authStateProvider);
+  if (fromStream.hasValue) return fromStream.value?.uid;
+  return ref.read(authRepositoryProvider).currentUserId;
 });
