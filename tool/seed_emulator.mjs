@@ -199,4 +199,103 @@ for (const a of artists) {
   });
 }
 
-console.log(`Seeded 1 admin, 1 non-admin and ${artists.length} artists into the emulators.`);
+// ---- Customers and bookings -------------------------------------------------
+// Dates are relative to "now" so the sample data is always current. Each
+// booking that still holds the calendar also gets its lock documents, one per
+// 30-minute step, exactly like the customer app creates them.
+
+const STEP_MINUTES = 30;
+const customers = [
+  { id: 'customer-1', phone: '+919000000001' },
+  { id: 'customer-2', phone: '+919000000002' },
+];
+
+function at(daysFromNow, hour, minute = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
+
+const addMinutes = (date, minutes) => new Date(date.getTime() + minutes * 60000);
+const pad = (n) => String(n).padStart(2, '0');
+const dateKey = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+
+const bookings = [
+  {
+    id: 'seed-booking-1', userId: 'customer-1', artistId: 'artist-priya', artistName: 'Priya Nair',
+    serviceName: 'Bridal makeup + 1 add-on', start: at(2, 10), duration: 200, buffer: 15,
+    mode: 'studio', amount: 15600, commissionRate: 0.15, status: 'requested', locks: true,
+  },
+  {
+    id: 'seed-booking-2', userId: 'customer-2', artistId: 'artist-anjali', artistName: 'Anjali Menon',
+    serviceName: 'Airbrush bridal', start: at(3, 11), duration: 210, buffer: 30,
+    mode: 'home', address: '12 Lake View Road, Chennai', amount: 18000, commissionRate: 0.12,
+    status: 'requested', locks: true,
+  },
+  {
+    id: 'seed-booking-3', userId: 'customer-1', artistId: 'artist-priya', artistName: 'Priya Nair',
+    serviceName: 'Party makeup', start: at(4, 15), duration: 90, buffer: 15,
+    mode: 'studio', amount: 4500, commissionRate: 0.15, status: 'confirmed', locks: true,
+  },
+  {
+    // Confirmed and already finished, so "Mark completed" is on offer.
+    id: 'seed-booking-4', userId: 'customer-2', artistId: 'artist-priya', artistName: 'Priya Nair',
+    serviceName: 'Engagement makeup', start: at(-1, 11), duration: 120, buffer: 15,
+    mode: 'studio', amount: 8000, commissionRate: 0.15, status: 'confirmed', locks: false,
+  },
+  {
+    id: 'seed-booking-5', userId: 'customer-1', artistId: 'artist-anjali', artistName: 'Anjali Menon',
+    serviceName: 'HD party look', start: at(-6, 14), duration: 90, buffer: 30,
+    mode: 'studio', amount: 5500, commissionRate: 0.12, status: 'completed', locks: false,
+  },
+  {
+    id: 'seed-booking-6', userId: 'customer-2', artistId: 'artist-priya', artistName: 'Priya Nair',
+    serviceName: 'Party makeup', start: at(6, 12), duration: 90, buffer: 15,
+    mode: 'studio', amount: 4500, commissionRate: 0.15, status: 'cancelled', locks: false,
+  },
+];
+
+for (const customer of customers) {
+  await setDoc(`users/${customer.id}`, { phone: customer.phone, createdAt: new Date() });
+}
+
+for (const b of bookings) {
+  const steps = Math.ceil((b.duration + b.buffer) / STEP_MINUTES);
+  const blockedUntil = addMinutes(b.start, steps * STEP_MINUTES);
+
+  await setDoc(`bookings/${b.id}`, {
+    userId: b.userId,
+    artistId: b.artistId,
+    artistName: b.artistName,
+    serviceName: b.serviceName,
+    durationMinutes: b.duration,
+    bufferMinutes: b.buffer,
+    mode: b.mode,
+    address: b.address ?? null,
+    startAt: b.start,
+    endAt: addMinutes(b.start, b.duration),
+    blockedUntil,
+    amount: b.amount,
+    commissionRate: b.commissionRate,
+    status: b.status,
+    createdAt: addMinutes(new Date(), -90),
+  });
+
+  if (!b.locks) continue;
+  for (let i = 0; i < steps; i++) {
+    const step = addMinutes(b.start, i * STEP_MINUTES);
+    const id = `${b.artistId}_${dateKey(step)}${pad(step.getHours())}${pad(step.getMinutes())}`;
+    await setDoc(`bookingSlots/${id}`, {
+      artistId: b.artistId,
+      bookingId: b.id,
+      userId: b.userId,
+      dateKey: dateKey(step),
+      startAt: step,
+    });
+  }
+}
+
+console.log(
+  `Seeded 1 admin, 1 non-admin, ${artists.length} artists and ${bookings.length} bookings into the emulators.`,
+);

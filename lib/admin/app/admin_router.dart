@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/artists/presentation/screen/artist_editor_screen.dart';
+import '../features/bookings/presentation/screen/bookings_screen.dart';
 import '../features/artists/presentation/screen/artists_list_screen.dart';
 import '../features/auth/domain/admin_auth_repository.dart';
 import '../features/auth/presentation/provider/admin_auth_provider.dart';
@@ -18,7 +19,7 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
 
   final router = GoRouter(
-    initialLocation: AdminRoutes.artists,
+    initialLocation: AdminRoutes.home,
     refreshListenable: refresh,
     redirect: (context, state) => _guard(ref, state.matchedLocation),
     routes: [
@@ -40,6 +41,10 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state, child) =>
             AdminShell(location: state.matchedLocation, child: child),
         routes: [
+          GoRoute(
+            path: AdminRoutes.bookings,
+            builder: (_, __) => const BookingsScreen(),
+          ),
           GoRoute(
             path: AdminRoutes.artists,
             builder: (_, __) => const ArtistsListScreen(),
@@ -82,6 +87,6 @@ String? _guard(Ref ref, String location) {
       final isEntryPage = location == AdminRoutes.login ||
           location == AdminRoutes.notAuthorised ||
           location == AdminRoutes.splash;
-      return isEntryPage ? AdminRoutes.artists : null;
+      return isEntryPage ? AdminRoutes.home : null;
   }
 }

@@ -15,6 +15,7 @@ class _Destination {
 }
 
 const _destinations = [
+  _Destination('Bookings', Icons.event_note_outlined, AdminRoutes.bookings),
   _Destination('Artists', Icons.brush_outlined, AdminRoutes.artists),
 ];
 

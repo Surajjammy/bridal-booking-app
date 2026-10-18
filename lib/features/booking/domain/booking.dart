@@ -8,6 +8,9 @@ enum BookingStatus { requested, confirmed, declined, cancelled, completed }
 
 class Booking {
   final String id;
+
+  /// The customer who made the booking.
+  final String userId;
   final String artistId;
   final String artistName;
 
@@ -24,10 +27,18 @@ class Booking {
   /// The calendar is locked from [startAt] until here.
   final DateTime blockedUntil;
   final double amount;
+
+  /// Platform share in force when the booking was made (0.15 = 15%).
+  final double commissionRate;
   final BookingStatus status;
+
+  /// When the request was made; null only while the server timestamp is
+  /// still being written.
+  final DateTime? createdAt;
 
   const Booking({
     required this.id,
+    required this.userId,
     required this.artistId,
     required this.artistName,
     required this.serviceName,
@@ -37,8 +48,13 @@ class Booking {
     required this.endAt,
     required this.blockedUntil,
     required this.amount,
+    this.commissionRate = 0,
     required this.status,
+    this.createdAt,
   });
+
+  /// What the platform keeps from this booking.
+  double get commission => amount * commissionRate;
 
   /// Customers can cancel until the service has happened.
   bool get canCancel =>

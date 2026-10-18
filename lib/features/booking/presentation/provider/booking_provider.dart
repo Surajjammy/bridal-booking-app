@@ -9,9 +9,6 @@ final bookingRepositoryProvider = Provider<BookingRepository>((ref) {
   return BookingRepository(ref.watch(firestoreProvider));
 });
 
-/// "Now", as a function so tests can fix the time instead of racing the clock.
-final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
-
 typedef SlotQuery = ({String artistId, DateTime day});
 
 final bookedSlotsProvider =

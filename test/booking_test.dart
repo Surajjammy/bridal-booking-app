@@ -8,6 +8,7 @@ Booking _booking({
 }) =>
     Booking(
       id: 'b1',
+      userId: 'u1',
       artistId: 'a1',
       artistName: 'Test',
       serviceName: 'Bridal',

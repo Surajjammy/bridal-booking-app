@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:makeup_booking_app/core/config/app_config.dart';
+import 'package:makeup_booking_app/core/utils/formatters.dart';
 import 'package:makeup_booking_app/features/artist/domain/entity/artist.dart';
 
 import '../../../../app/admin_routes.dart';
@@ -55,11 +56,6 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
 
   bool get _isEditing => widget.initial != null;
 
-  /// 0.15 -> "15", 0.125 -> "12.5".
-  static String _percentText(double fraction) {
-    final percent = fraction * 100;
-    return percent.toStringAsFixed(percent % 1 == 0 ? 0 : 1);
-  }
 
   @override
   void initState() {
@@ -77,9 +73,10 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
     _contactPhone = TextEditingController(text: details.contactPhone);
     _instagram = TextEditingController(text: details.instagram);
     _notes = TextEditingController(text: details.notes);
-    _commissionPercent = TextEditingController(text: _percentText(commission));
+    _commissionPercent =
+        TextEditingController(text: formatPercentNumber(commission));
     _repeatCommissionPercent =
-        TextEditingController(text: _percentText(repeatCommission));
+        TextEditingController(text: formatPercentNumber(repeatCommission));
     _services = ServicesEditorController(artist?.services ?? const []);
     _availability = AvailabilityController(artist);
     _modes = {...(artist?.serviceModes ?? ServiceMode.values)};

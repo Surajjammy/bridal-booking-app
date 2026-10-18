@@ -21,5 +21,18 @@ String formatDuration(int minutes) {
   return rest == 0 ? '$hours h' : '$hours h $rest min';
 }
 
+/// A moment for people: "18 Oct, 3:20 PM".
+String formatDateTime(DateTime date) => DateFormat('d MMM, h:mm a').format(date);
+
+/// A fraction as a percentage, without a pointless ".0": 0.15 -> "15%",
+/// 0.125 -> "12.5%".
+String formatPercent(double fraction) => '${formatPercentNumber(fraction)}%';
+
+/// Same, without the percent sign, for form fields: 0.15 -> "15".
+String formatPercentNumber(double fraction) {
+  final percent = fraction * 100;
+  return percent.toStringAsFixed(percent % 1 == 0 ? 0 : 1);
+}
+
 /// Sortable key used to group slots by day, e.g. `20261006`.
 String dateKey(DateTime date) => DateFormat('yyyyMMdd').format(date);
