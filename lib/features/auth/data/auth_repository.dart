@@ -93,6 +93,8 @@ class AuthRepository {
         return 'Too many attempts. Please wait a while and try again.';
       case 'network-request-failed':
         return 'No internet connection.';
+      case 'operation-not-allowed':
+        return 'Phone login is not turned on for this app yet.';
       default:
         debugPrint('Unhandled FirebaseAuthException: ${e.code} ${e.message}');
         return "Couldn't verify your number. Please try again.";
