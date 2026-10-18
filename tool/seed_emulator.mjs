@@ -24,6 +24,7 @@ const artists = [
     serviceModes: ['home', 'studio'],
     isActive: true,
     commissionRate: 0.15,
+    repeatCommissionRate: 0.05,
     services: [
       { id: 's1', name: 'Bridal makeup', price: 15000, durationMinutes: 180 },
       { id: 's2', name: 'Engagement makeup', price: 8000, durationMinutes: 120 },
@@ -41,6 +42,7 @@ const artists = [
     serviceModes: ['studio'],
     isActive: true,
     commissionRate: 0.12,
+    repeatCommissionRate: 0.04,
     services: [
       { id: 's1', name: 'Airbrush bridal', price: 18000, durationMinutes: 210 },
       { id: 's2', name: 'HD party look', price: 5500, durationMinutes: 90 },
@@ -57,6 +59,7 @@ const artists = [
     serviceModes: ['home'],
     isActive: false,
     commissionRate: 0.15,
+    repeatCommissionRate: 0.05,
     services: [{ id: 's1', name: 'Reception makeup', price: 9000, durationMinutes: 150 }],
     contactPhone: '',
     instagram: '',
@@ -127,6 +130,7 @@ for (const a of artists) {
     name: a.name,
     city: a.city,
     commissionRate: a.commissionRate,
+    repeatCommissionRate: a.repeatCommissionRate,
     createdAt: now,
     updatedAt: now,
   });

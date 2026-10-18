@@ -18,6 +18,7 @@ ArtistDraft _draft() => const ArtistDraft(
       ],
       isActive: true,
       commissionRate: 0.15,
+      repeatCommissionRate: 0.05,
       privateDetails: ArtistPrivateDetails(contactPhone: '9876543210'),
     );
 

@@ -52,11 +52,14 @@ class FirestoreAdminArtistRepository implements AdminArtistRepository {
     final privateMap = privateDoc.data() ?? {};
 
     var commissionRate = AppConfig.commissionRate;
+    var repeatCommissionRate = AppConfig.repeatCommissionRate;
     if (artist.providerId.isNotEmpty) {
-      final providerDoc = await _providers.doc(artist.providerId).get();
+      final provider = (await _providers.doc(artist.providerId).get()).data();
       commissionRate =
-          (providerDoc.data()?['commissionRate'] as num?)?.toDouble() ??
-              commissionRate;
+          (provider?['commissionRate'] as num?)?.toDouble() ?? commissionRate;
+      repeatCommissionRate =
+          (provider?['repeatCommissionRate'] as num?)?.toDouble() ??
+              repeatCommissionRate;
     }
 
     return ArtistEditorData(
@@ -67,6 +70,7 @@ class FirestoreAdminArtistRepository implements AdminArtistRepository {
         notes: (privateMap['notes'] ?? '').toString(),
       ),
       commissionRate: commissionRate,
+      repeatCommissionRate: repeatCommissionRate,
     );
   }
 
@@ -127,6 +131,7 @@ class FirestoreAdminArtistRepository implements AdminArtistRepository {
         'name': artist.name,
         'city': artist.city,
         'commissionRate': draft.commissionRate,
+        'repeatCommissionRate': draft.repeatCommissionRate,
         if (!hasProvider) 'createdAt': now,
         'updatedAt': now,
       },

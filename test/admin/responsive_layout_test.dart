@@ -79,6 +79,54 @@ void main() {
       });
     }
 
+    testWidgets('rejects contact details in the public text fields',
+        (tester) async {
+      await _pump(
+        tester,
+        const Size(1200, 1600),
+        const Scaffold(body: ArtistForm()),
+      );
+
+      // Fields in order: name, city, about, then the service name.
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'Priya');
+      await tester.enterText(fields.at(1), 'Kochi');
+      await tester.enterText(fields.at(2), 'Call me on 98765 43210');
+      await tester.enterText(fields.at(3), 'Bridal @priya.makeup');
+
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining("don't add phone numbers"),
+        findsNWidgets(2),
+      );
+    });
+
+    testWidgets('repeat commission cannot exceed the new-customer rate',
+        (tester) async {
+      await _pump(
+        tester,
+        const Size(1200, 2000),
+        const Scaffold(body: ArtistForm()),
+      );
+
+      // Defaults are 15% and 5%; make the repeat rate higher than the first.
+      final repeat = find.widgetWithText(
+        TextFormField,
+        'Commission, repeat customers',
+      );
+      await tester.enterText(repeat, '20');
+
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Must not be higher than the new-customer rate'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('empty form reports every missing field', (tester) async {
       await _pump(
         tester,

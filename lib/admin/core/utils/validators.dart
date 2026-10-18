@@ -14,6 +14,33 @@ class Validators {
     return null;
   }
 
+  static const String _contactMessage =
+      "Please don't add phone numbers, links or social handles. "
+      'Customers book through the app.';
+
+  static final List<RegExp> _contactPatterns = [
+    RegExp(r'https?://'),
+    RegExp(r'www\.'),
+    // A domain such as priya.in or glam.co.in
+    RegExp(r'\b[a-z0-9-]+\.(com|in|co|net|org|me|link|bio|app|io|store|shop)\b'),
+    // An email address
+    RegExp(r'[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}'),
+    // A social handle such as @priya.makeup
+    RegExp(r'(^|[\s(])@[a-z0-9._]{2,}'),
+    RegExp(r'\b(whatsapp|whats app|telegram|dm me|call me|text me)\b'),
+    // Ten or more digits in a row, allowing spaces, dashes, dots and brackets
+    RegExp(r'(?:\+?\d[\s\-.()]{0,2}){10,}'),
+  ];
+
+  /// For text customers can see (name, bio, service names): rejects contact
+  /// details, so people book through the app. A deterrent, not a guarantee:
+  /// someone determined can still spell a number out in words.
+  static String? noContactDetails(String? value) {
+    final text = (value ?? '').toLowerCase();
+    if (text.trim().isEmpty) return null;
+    return _contactPatterns.any((p) => p.hasMatch(text)) ? _contactMessage : null;
+  }
+
   static String? email(String? value) {
     final error = required(value, 'Email');
     if (error != null) return error;

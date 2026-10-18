@@ -150,7 +150,9 @@ class _ServiceRow extends StatelessWidget {
     final nameField = TextFormField(
       controller: row.name,
       validator: (v) =>
-          Validators.required(v, 'Service name') ?? Validators.maxLength(v, 80),
+          Validators.required(v, 'Service name') ??
+          Validators.maxLength(v, 80) ??
+          Validators.noContactDetails(v),
       decoration: const InputDecoration(
         labelText: 'Service',
         hintText: 'e.g. Bridal makeup',

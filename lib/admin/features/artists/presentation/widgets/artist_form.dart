@@ -39,6 +39,7 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
   late final TextEditingController _instagram;
   late final TextEditingController _notes;
   late final TextEditingController _commissionPercent;
+  late final TextEditingController _repeatCommissionPercent;
   late final ServicesEditorController _services;
 
   late Set<ServiceMode> _modes;
@@ -52,6 +53,12 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
 
   bool get _isEditing => widget.initial != null;
 
+  /// 0.15 -> "15", 0.125 -> "12.5".
+  static String _percentText(double fraction) {
+    final percent = fraction * 100;
+    return percent.toStringAsFixed(percent % 1 == 0 ? 0 : 1);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +66,8 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
     final artist = initial?.artist;
     final details = initial?.privateDetails ?? const ArtistPrivateDetails();
     final commission = initial?.commissionRate ?? AppConfig.commissionRate;
+    final repeatCommission =
+        initial?.repeatCommissionRate ?? AppConfig.repeatCommissionRate;
 
     _name = TextEditingController(text: artist?.name ?? '');
     _city = TextEditingController(text: artist?.city ?? '');
@@ -66,9 +75,9 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
     _contactPhone = TextEditingController(text: details.contactPhone);
     _instagram = TextEditingController(text: details.instagram);
     _notes = TextEditingController(text: details.notes);
-    _commissionPercent = TextEditingController(
-      text: (commission * 100).toStringAsFixed(commission * 100 % 1 == 0 ? 0 : 1),
-    );
+    _commissionPercent = TextEditingController(text: _percentText(commission));
+    _repeatCommissionPercent =
+        TextEditingController(text: _percentText(repeatCommission));
     _services = ServicesEditorController(artist?.services ?? const []);
     _modes = {...(artist?.serviceModes ?? ServiceMode.values)};
     _isActive = artist?.isActive ?? true;
@@ -87,6 +96,7 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
       _instagram,
       _notes,
       _commissionPercent,
+      _repeatCommissionPercent,
     ]) {
       controller.dispose();
     }
@@ -156,6 +166,8 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
       services: _services.toServices(),
       isActive: _isActive,
       commissionRate: double.parse(_commissionPercent.text.trim()) / 100,
+      repeatCommissionRate:
+          double.parse(_repeatCommissionPercent.text.trim()) / 100,
       privateDetails: ArtistPrivateDetails(
         contactPhone: _contactPhone.text,
         instagram: _instagram.text,
@@ -275,7 +287,9 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
           TextFormField(
             controller: _name,
             validator: (v) =>
-                Validators.required(v, 'Name') ?? Validators.maxLength(v, 80),
+                Validators.required(v, 'Name') ??
+                Validators.maxLength(v, 80) ??
+                Validators.noContactDetails(v),
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(labelText: 'Name'),
           ),
@@ -290,7 +304,8 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
         const SizedBox(height: 16),
         TextFormField(
           controller: _bio,
-          validator: (v) => Validators.maxLength(v, 500),
+          validator: (v) =>
+              Validators.maxLength(v, 500) ?? Validators.noContactDetails(v),
           maxLines: 4,
           maxLength: 500,
           decoration: const InputDecoration(
@@ -354,6 +369,18 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
     );
   }
 
+  /// The repeat rate is a discount, so it may not exceed the first-booking rate.
+  String? _validateRepeatCommission(String? value) {
+    final error = Validators.number(value, min: 0, max: 60);
+    if (error != null) return error;
+
+    final first = double.tryParse(_commissionPercent.text.trim());
+    if (first != null && double.parse(value!.trim()) > first) {
+      return 'Must not be higher than the new-customer rate';
+    }
+    return null;
+  }
+
   Widget _buildVisibilitySection() {
     return SectionCard(
       title: 'Visibility and commission',
@@ -368,16 +395,25 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
             onChanged: (value) => setState(() => _isActive = value),
           ),
           const SizedBox(height: 12),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320),
-            child: TextFormField(
+          _twoColumns(
+            TextFormField(
               controller: _commissionPercent,
               validator: (v) => Validators.number(v, min: 0, max: 60),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
-                labelText: 'Commission',
+                labelText: 'Commission, new customers',
                 suffixText: '%',
-                helperText: 'Platform share of each booking',
+                helperText: 'Platform share of a first booking',
+              ),
+            ),
+            TextFormField(
+              controller: _repeatCommissionPercent,
+              validator: _validateRepeatCommission,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Commission, repeat customers',
+                suffixText: '%',
+                helperText: 'Lower, so regulars stay on the app',
               ),
             ),
           ),

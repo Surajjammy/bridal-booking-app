@@ -38,6 +38,50 @@ void main() {
     });
   });
 
+  group('Validators.noContactDetails', () {
+    test('allows ordinary descriptions', () {
+      for (final text in [
+        '',
+        null,
+        'Bridal and engagement makeup with 10 years of experience.',
+        'Traditional Kerala looks, starting from 15000.',
+        'Studio in Kochi, open 10 AM to 6 PM.',
+      ]) {
+        expect(Validators.noContactDetails(text), isNull, reason: '$text');
+      }
+    });
+
+    test('rejects phone numbers in common formats', () {
+      for (final text in [
+        'Call 9876543210 for bookings',
+        'Reach me on +91 98765 43210',
+        'Phone: 98765-43210',
+        '(+91) 98765.43210',
+      ]) {
+        expect(Validators.noContactDetails(text), isNotNull, reason: text);
+      }
+    });
+
+    test('rejects links, emails and handles', () {
+      for (final text in [
+        'See https://example.com/priya',
+        'Visit www.priyamakeup.in',
+        'priyamakeup.com has my work',
+        'mail priya@example.com',
+        'Follow @priya.makeup',
+        'Instagram: (@priya_glam)',
+      ]) {
+        expect(Validators.noContactDetails(text), isNotNull, reason: text);
+      }
+    });
+
+    test('rejects invitations to talk off the app', () {
+      for (final text in ['WhatsApp me', 'DM me for prices', 'call me anytime']) {
+        expect(Validators.noContactDetails(text), isNotNull, reason: text);
+      }
+    });
+  });
+
   group('optional fields', () {
     test('empty is valid', () {
       expect(Validators.optionalIndianMobile(''), isNull);

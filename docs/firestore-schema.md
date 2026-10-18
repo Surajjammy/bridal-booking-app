@@ -45,7 +45,8 @@ Phase 1 creates one provider per individual artist, automatically. Salons
 |---|---|---|
 | type | string | `individual` (phase 1) or `salon` (phase 2) |
 | name, city | string | kept in sync with the artist for individuals |
-| commissionRate | number | platform share, 0.15 = 15% |
+| commissionRate | number | platform share of a customer's first booking with this provider, 0.15 = 15% |
+| repeatCommissionRate | number | lower share when the customer has booked this provider before (default 0.05), so regulars stay on the app. Never above `commissionRate`. Not yet applied to bookings: the booking still copies the default from `AppConfig`; per-provider and repeat rates need server-side logic once payments exist, because a client must not choose its own commission. |
 | ownerUid | string? | Auth uid allowed to manage this provider's bookings |
 | createdAt, updatedAt | timestamp | |
 

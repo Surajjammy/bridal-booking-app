@@ -25,6 +25,9 @@ class ArtistDraft {
 
   /// Share of each booking kept by the platform, as a fraction (0.15 = 15%).
   final double commissionRate;
+
+  /// Same, for a customer who has booked this provider before.
+  final double repeatCommissionRate;
   final ArtistPrivateDetails privateDetails;
 
   const ArtistDraft({
@@ -35,6 +38,7 @@ class ArtistDraft {
     required this.services,
     required this.isActive,
     required this.commissionRate,
+    required this.repeatCommissionRate,
     required this.privateDetails,
   });
 
@@ -66,10 +70,12 @@ class ArtistEditorData {
   final Artist artist;
   final ArtistPrivateDetails privateDetails;
   final double commissionRate;
+  final double repeatCommissionRate;
 
   const ArtistEditorData({
     required this.artist,
     required this.privateDetails,
     required this.commissionRate,
+    required this.repeatCommissionRate,
   });
 }
