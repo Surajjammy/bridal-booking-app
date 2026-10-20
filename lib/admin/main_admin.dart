@@ -8,11 +8,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'admin_firebase_options.dart';
 import 'app/admin_app.dart';
 import 'app/admin_environment.dart';
+import 'core/web/saved_logins.dart';
 
 /// Entry point of the admin web app:
 /// `flutter run -t lib/admin/main_admin.dart -d chrome`
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Before Firebase starts, so no stale login can make it contact the real
+  // project ahead of the emulator connection.
+  if (AdminEnvironment.useEmulator) await clearSavedFirebaseLogins();
+
   await Firebase.initializeApp(options: adminFirebaseOptions);
 
   if (AdminEnvironment.useEmulator) {

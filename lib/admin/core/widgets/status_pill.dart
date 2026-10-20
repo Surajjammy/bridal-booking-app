@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:makeup_booking_app/features/booking/domain/booking.dart';
 
 import '../theme/admin_colors.dart';
 
@@ -14,6 +15,19 @@ class StatusPill extends StatelessWidget {
         label: isActive ? 'Active' : 'Inactive',
         color: isActive ? AdminColors.success : AdminColors.neutral,
       );
+
+  factory StatusPill.booking(BookingStatus status) => switch (status) {
+        BookingStatus.requested =>
+          const StatusPill(label: 'Requested', color: AdminColors.warning),
+        BookingStatus.confirmed =>
+          const StatusPill(label: 'Confirmed', color: AdminColors.success),
+        BookingStatus.declined =>
+          const StatusPill(label: 'Declined', color: AdminColors.danger),
+        BookingStatus.cancelled =>
+          const StatusPill(label: 'Cancelled', color: AdminColors.danger),
+        BookingStatus.completed =>
+          const StatusPill(label: 'Completed', color: AdminColors.neutral),
+      };
 
   @override
   Widget build(BuildContext context) {

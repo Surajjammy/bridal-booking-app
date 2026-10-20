@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:makeup_booking_app/core/providers/clock_provider.dart';
 import 'package:makeup_booking_app/core/utils/formatters.dart';
 import 'package:makeup_booking_app/features/artist/domain/entity/artist.dart';
 import 'package:makeup_booking_app/features/auth/presentation/provider/auth_provider.dart';

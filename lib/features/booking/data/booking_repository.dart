@@ -2,32 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:makeup_booking_app/core/config/app_config.dart';
 import 'package:makeup_booking_app/core/constants/firestore_paths.dart';
 import 'package:makeup_booking_app/core/utils/formatters.dart';
-import 'package:makeup_booking_app/features/artist/domain/entity/artist.dart';
 
 import '../domain/booking.dart';
 import '../domain/booking_quote.dart';
 import '../domain/slot_math.dart';
+import 'booking_slots.dart';
+import 'model/booking_model.dart';
 
 class BookingRepository {
   final FirebaseFirestore _firestore;
+  final BookingSlots _slots;
 
-  BookingRepository(this._firestore);
+  BookingRepository(this._firestore) : _slots = BookingSlots(_firestore);
 
   CollectionReference<Map<String, dynamic>> get _bookings =>
       _firestore.collection(FirestorePaths.bookings);
-  CollectionReference<Map<String, dynamic>> get _slots =>
-      _firestore.collection(FirestorePaths.bookingSlots);
-
-  /// One lock document per calendar step, named after the artist and the
-  /// step's start, so two bookings can never share a step.
-  DocumentReference<Map<String, dynamic>> _slotRef(
-    String artistId,
-    DateTime step,
-  ) {
-    final time = '${step.hour.toString().padLeft(2, '0')}'
-        '${step.minute.toString().padLeft(2, '0')}';
-    return _slots.doc('${artistId}_${dateKey(step)}$time');
-  }
 
   /// The customer's bookings, newest first. Sorted here rather than in the
   /// query so no composite Firestore index is needed.
@@ -36,57 +25,28 @@ class BookingRepository {
         .where('userId', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
-      final bookings = snapshot.docs.map(_fromDoc).toList()
+      final bookings = snapshot.docs.map(BookingModel.fromDoc).toList()
         ..sort((a, b) => b.startAt.compareTo(a.startAt));
       return bookings;
     });
   }
 
-  Booking _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-    final map = doc.data();
-    final startAt = (map['startAt'] as Timestamp).toDate();
-    final duration = (map['durationMinutes'] as num?)?.toInt() ??
-        AppConfig.slotStepMinutes;
-
-    return Booking(
-      id: doc.id,
-      artistId: (map['artistId'] ?? '').toString(),
-      artistName: (map['artistName'] ?? '').toString(),
-      serviceName: (map['serviceName'] ?? '').toString(),
-      mode: ServiceMode.fromName(map['mode']?.toString()) ?? ServiceMode.studio,
-      address: map['address'] as String?,
-      startAt: startAt,
-      // Bookings made before durations were tracked fall back to one step.
-      endAt: (map['endAt'] as Timestamp?)?.toDate() ??
-          startAt.add(Duration(minutes: duration)),
-      blockedUntil: (map['blockedUntil'] as Timestamp?)?.toDate() ??
-          SlotMath.blockedUntil(startAt, duration),
-      amount: (map['amount'] as num?)?.toDouble() ?? 0,
-      status: BookingStatus.values.firstWhere(
-        (s) => s.name == map['status'],
-        orElse: () => BookingStatus.requested,
-      ),
-    );
-  }
-
   /// Marks the booking cancelled and frees every step it locked, atomically.
   Future<void> cancelBooking(Booking booking) {
-    final blockedMinutes =
-        booking.blockedUntil.difference(booking.startAt).inMinutes;
     final batch = _firestore.batch();
 
     batch.update(_bookings.doc(booking.id), {
       'status': BookingStatus.cancelled.name,
     });
-    for (final step in SlotMath.lockSteps(booking.startAt, blockedMinutes)) {
-      batch.delete(_slotRef(booking.artistId, step));
+    for (final lock in _slots.refsForBooking(booking)) {
+      batch.delete(lock);
     }
     return batch.commit();
   }
 
   /// Calendar steps already taken for [artistId] on [day].
   Future<Set<DateTime>> getBookedSlots(String artistId, DateTime day) async {
-    final snapshot = await _slots
+    final snapshot = await _slots.collection
         .where('artistId', isEqualTo: artistId)
         .where('dateKey', isEqualTo: dateKey(day))
         .get();
@@ -111,17 +71,21 @@ class BookingRepository {
     final quote = request.quote;
     final artist = quote.artist;
     final steps = SlotMath.lockSteps(request.startAt, quote.blockedMinutes);
-    final slotRefs = [for (final step in steps) _slotRef(artist.id, step)];
+    final lockRefs = _slots.refsFor(
+      artist.id,
+      request.startAt,
+      quote.blockedMinutes,
+    );
     final bookingRef = _bookings.doc();
 
     await _firestore.runTransaction((tx) async {
       // All reads come before any write.
-      for (final ref in slotRefs) {
+      for (final ref in lockRefs) {
         if ((await tx.get(ref)).exists) throw const SlotUnavailableException();
       }
 
       for (var i = 0; i < steps.length; i++) {
-        tx.set(slotRefs[i], {
+        tx.set(lockRefs[i], {
           'artistId': artist.id,
           'bookingId': bookingRef.id,
           'userId': request.userId,
