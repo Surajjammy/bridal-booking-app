@@ -40,6 +40,10 @@ class Artist {
   final List<ArtistService> services;
   final bool isActive;
 
+  /// The business that gets paid for this artist's bookings. For an
+  /// individual artist it is a provider with a single artist.
+  final String providerId;
+
   const Artist({
     required this.id,
     required this.name,
@@ -51,6 +55,7 @@ class Artist {
     required this.serviceModes,
     required this.services,
     required this.isActive,
+    this.providerId = '',
   });
 
   /// Lowest service price, shown on list cards as "From ₹X".

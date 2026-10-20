@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/entity/artist.dart';
 
+/// Single place that knows how an [Artist] is stored in Firestore. Both the
+/// customer app (reads) and the admin panel (writes) go through it.
 class ArtistModel {
   /// Parses an `artists/{id}` document. Tolerates the original prototype
-  /// schema (`image`, `price`, string-only `services`) so existing dev data
-  /// keeps loading while it is migrated through the admin panel.
+  /// schema (`image`, `price`, string-only `services`) so old documents keep
+  /// loading.
   static Artist fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final map = doc.data() ?? {};
     final legacyPrice = (map['price'] as num?)?.toDouble() ?? 0;
@@ -47,6 +49,32 @@ class ArtistModel {
       serviceModes: modes.isEmpty ? ServiceMode.values : modes,
       services: services,
       isActive: map['isActive'] as bool? ?? true,
+      providerId: (map['providerId'] ?? '').toString(),
     );
+  }
+
+  /// The fields an admin edits. `rating` and `reviewCount` are deliberately
+  /// excluded: they are maintained by the review system, and writing them
+  /// here would overwrite it.
+  static Map<String, dynamic> toEditableMap(Artist artist) {
+    return {
+      'name': artist.name,
+      'bio': artist.bio,
+      'city': artist.city,
+      'imageUrl': artist.imageUrl,
+      'serviceModes': artist.serviceModes.map((m) => m.name).toList(),
+      'services': artist.services.map(serviceToMap).toList(),
+      'isActive': artist.isActive,
+      'providerId': artist.providerId,
+    };
+  }
+
+  static Map<String, dynamic> serviceToMap(ArtistService service) {
+    return {
+      'id': service.id,
+      'name': service.name,
+      'price': service.price,
+      'durationMinutes': service.durationMinutes,
+    };
   }
 }
