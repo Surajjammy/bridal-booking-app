@@ -1,0 +1,75 @@
+rules_version = '2';
+
+// TARGET rules: they assume Firebase Auth login and an `admin` custom claim.
+// Do not deploy until phone login is in the app, or every write will be
+// denied. See docs/firestore-schema.md.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function isArtistOwner(artistId) {
+      return signedIn() &&
+        get(/databases/$(database)/documents/artists/$(artistId)).data.ownerUid == request.auth.uid;
+    }
+
+    // Customer profiles: a user manages only their own document.
+    match /users/{uid} {
+      allow read, create, update: if signedIn() && request.auth.uid == uid;
+      allow read: if isAdmin();
+    }
+
+    // Public catalogue. Only admins write (the admin panel).
+    match /artists/{artistId} {
+      allow read: if resource.data.isActive == true || isAdmin() || isArtistOwner(artistId);
+      allow write: if isAdmin();
+
+      match /portfolio/{itemId} {
+        allow read: if true;
+        allow write: if isAdmin() || isArtistOwner(artistId);
+      }
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if signedIn() &&
+        (resource.data.userId == request.auth.uid ||
+         isArtistOwner(resource.data.artistId) ||
+         isAdmin());
+
+      // Customers can only create a `requested` booking for themselves.
+      allow create: if signedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'requested';
+
+      // Artist confirms/declines; customer cancels. Nothing else may change.
+      allow update: if signedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        (
+          (isArtistOwner(resource.data.artistId) &&
+            request.resource.data.status in ['confirmed', 'declined', 'cancelled', 'completed']) ||
+          (resource.data.userId == request.auth.uid &&
+            request.resource.data.status == 'cancelled') ||
+          isAdmin()
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // One document per taken artist+time. Its existence is what prevents
+    // double booking; create succeeds only if it does not exist yet.
+    match /bookingSlots/{slotId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin() ||
+        (signedIn() && resource.data.userId == request.auth.uid) ||
+        isArtistOwner(resource.data.artistId);
+      allow update: if false;
+    }
+  }
+}

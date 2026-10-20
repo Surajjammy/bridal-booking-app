@@ -1,18 +1,16 @@
-import 'package:makeup_booking_app/features/portfolio/domain/portfolio_entity.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class PortfolioModel extends PortfolioEntity {
-  PortfolioModel({
-    required super.id,
-    required super.image,
-    required super.title,
-    required super.category,
-  });
+import '../domain/portfolio_entity.dart';
 
-  factory PortfolioModel.fromMap(Map<String, dynamic> map) {
-    return PortfolioModel(
-        image: map['image'] ?? '',
-        title: map['title'] ?? '',
-        category: map['category'] ?? '',
-        id: map['id'] ?? '');
+class PortfolioModel {
+  /// Parses an `artists/{artistId}/portfolio/{id}` document.
+  static PortfolioEntity fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final map = doc.data() ?? {};
+    return PortfolioEntity(
+      id: doc.id,
+      imageUrl: (map['imageUrl'] ?? map['image'] ?? '').toString(),
+      title: (map['title'] ?? '').toString(),
+      category: (map['category'] ?? '').toString(),
+    );
   }
 }
