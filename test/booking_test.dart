@@ -14,6 +14,8 @@ Booking _booking({
       mode: ServiceMode.studio,
       address: null,
       startAt: startAt,
+      endAt: startAt.add(const Duration(hours: 2)),
+      blockedUntil: startAt.add(const Duration(hours: 2, minutes: 30)),
       amount: 1000,
       status: status,
     );

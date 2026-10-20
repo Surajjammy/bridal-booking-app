@@ -126,8 +126,8 @@ class _BookingCard extends ConsumerWidget {
           Text(booking.serviceName, style: AppTextStyles.body),
           const SizedBox(height: 4),
           Text(
-            '${formatDate(booking.startAt)} · ${formatTime(booking.startAt)} · '
-            '${booking.mode.label}',
+            '${formatDate(booking.startAt)} · ${formatTime(booking.startAt)} – '
+            '${formatTime(booking.endAt)} · ${booking.mode.label}',
             style: AppTextStyles.body,
           ),
           if (booking.address != null && booking.address!.isNotEmpty)

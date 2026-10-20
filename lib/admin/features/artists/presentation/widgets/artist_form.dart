@@ -13,6 +13,7 @@ import '../../../../core/widgets/section_card.dart';
 import '../../data/firestore_admin_artist_repository.dart';
 import '../../domain/artist_draft.dart';
 import '../provider/admin_artist_providers.dart';
+import 'availability_section.dart';
 import 'profile_photo_field.dart';
 import 'services_editor.dart';
 
@@ -41,6 +42,7 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
   late final TextEditingController _commissionPercent;
   late final TextEditingController _repeatCommissionPercent;
   late final ServicesEditorController _services;
+  late final AvailabilityController _availability;
 
   late Set<ServiceMode> _modes;
   late bool _isActive;
@@ -79,6 +81,7 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
     _repeatCommissionPercent =
         TextEditingController(text: _percentText(repeatCommission));
     _services = ServicesEditorController(artist?.services ?? const []);
+    _availability = AvailabilityController(artist);
     _modes = {...(artist?.serviceModes ?? ServiceMode.values)};
     _isActive = artist?.isActive ?? true;
 
@@ -101,6 +104,7 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
       controller.dispose();
     }
     _services.dispose();
+    _availability.dispose();
     super.dispose();
   }
 
@@ -114,7 +118,9 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
           ? 'Add a profile photo'
           : null;
       _modesError = _modes.isEmpty ? 'Choose at least one option' : null;
-      _servicesError = _services.isEmpty ? 'Add at least one service' : null;
+      _servicesError = !_services.hasMainService
+          ? 'Add at least one service customers can book (not only add-ons)'
+          : null;
     });
 
     final valid = fieldsValid &&
@@ -165,6 +171,10 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
       serviceModes: _modes,
       services: _services.toServices(),
       isActive: _isActive,
+      workingHours: _availability.workingHours,
+      weeklyOffDays: {..._availability.offDays},
+      bufferMinutes: _availability.bufferMinutes,
+      travelBufferMinutes: _availability.travelBufferMinutes,
       commissionRate: double.parse(_commissionPercent.text.trim()) / 100,
       repeatCommissionRate:
           double.parse(_repeatCommissionPercent.text.trim()) / 100,
@@ -249,11 +259,18 @@ class _ArtistFormState extends ConsumerState<ArtistForm> {
                   const SizedBox(height: 20),
                   SectionCard(
                     title: 'Services',
-                    description: 'What the artist offers, with price and time.',
+                    description: 'A service is what customers book. An add-on '
+                        'is an extra offered with it (head massage, an extra '
+                        'family member).',
                     child: ServicesEditor(
                       controller: _services,
                       errorText: _servicesError,
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  AvailabilitySection(
+                    controller: _availability,
+                    twoColumns: _twoColumns,
                   ),
                   const SizedBox(height: 20),
                   _buildVisibilitySection(),

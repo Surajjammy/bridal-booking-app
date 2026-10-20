@@ -20,6 +20,10 @@ class AuthRepository {
 
   User? get currentUser => _auth.currentUser;
 
+  /// The signed-in user's uid right now, or null. Available immediately,
+  /// including when a saved session is restored on launch.
+  String? get currentUserId => _auth.currentUser?.uid;
+
   /// Starts phone verification for an E.164 number such as `+919876543210`.
   ///
   /// [onCodeSent] fires when the SMS is on its way. On some Android devices
@@ -93,6 +97,8 @@ class AuthRepository {
         return 'Too many attempts. Please wait a while and try again.';
       case 'network-request-failed':
         return 'No internet connection.';
+      case 'operation-not-allowed':
+        return 'Phone login is not turned on for this app yet.';
       default:
         debugPrint('Unhandled FirebaseAuthException: ${e.code} ${e.message}');
         return "Couldn't verify your number. Please try again.";
