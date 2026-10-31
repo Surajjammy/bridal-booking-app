@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:makeup_booking_app/core/config/app_config.dart';
+import 'package:makeup_booking_app/core/providers/clock_provider.dart';
 import 'package:makeup_booking_app/core/utils/formatters.dart';
 import 'package:makeup_booking_app/features/artist/domain/entity/artist.dart';
+import 'package:makeup_booking_app/features/auth/presentation/provider/auth_provider.dart';
 import 'package:makeup_booking_app/utils/app_text_styles.dart';
 import 'package:makeup_booking_app/utils/color_resource.dart';
 
 import '../../domain/booking.dart';
+import '../../domain/booking_quote.dart';
+import '../../domain/slot_math.dart';
 import '../provider/booking_provider.dart';
+import '../widgets/add_on_tile.dart';
+import '../widgets/booking_summary.dart';
 
 class BookingScreen extends ConsumerStatefulWidget {
   final Artist artist;
@@ -20,6 +25,7 @@ class BookingScreen extends ConsumerStatefulWidget {
 
 class _BookingScreenState extends ConsumerState<BookingScreen> {
   ArtistService? _service;
+  final Map<String, int> _addOnQuantities = {};
   late ServiceMode _mode = widget.artist.serviceModes.first;
   final _addressController = TextEditingController();
   DateTime? _date;
@@ -34,14 +40,39 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   bool get _needsAddress => _mode == ServiceMode.home;
 
+  /// Null until a main service is chosen.
+  BookingQuote? get _quote {
+    final service = _service;
+    if (service == null) return null;
+
+    return BookingQuote(
+      artist: widget.artist,
+      mainService: service,
+      mode: _mode,
+      addOns: [
+        for (final addOn in widget.artist.addOns)
+          SelectedAddOn(addOn, _addOnQuantities[addOn.id] ?? 0),
+      ],
+    );
+  }
+
   bool get _canSubmit =>
-      _service != null &&
+      _quote != null &&
       _slot != null &&
       (!_needsAddress || _addressController.text.trim().isNotEmpty) &&
       !_submitting;
 
+  /// Any change to what is booked changes how long it takes, so a time chosen
+  /// earlier may no longer fit: clear it and let the customer pick again.
+  void _changeBooking(VoidCallback change) {
+    setState(() {
+      change();
+      _slot = null;
+    });
+  }
+
   Future<void> _pickDate() async {
-    final today = DateTime.now();
+    final today = ref.read(clockProvider)();
     final picked = await showDatePicker(
       context: context,
       initialDate: _date ?? today,
@@ -49,25 +80,32 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       lastDate: today.add(const Duration(days: 365)),
     );
     if (picked != null) {
-      setState(() {
-        _date = DateTime(picked.year, picked.month, picked.day);
-        _slot = null;
-      });
+      _changeBooking(
+        () => _date = DateTime(picked.year, picked.month, picked.day),
+      );
     }
   }
 
   Future<void> _submit() async {
-    setState(() => _submitting = true);
+    final quote = _quote;
+    final userId = ref.read(currentUserIdProvider);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
+    if (quote == null || _slot == null) return;
+    if (userId == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Please log in to book.')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
     try {
       await ref.read(bookingRepositoryProvider).createBooking(
             BookingRequest(
-              userId: ref.read(currentUserIdProvider),
-              artist: widget.artist,
-              service: _service!,
-              mode: _mode,
+              userId: userId,
+              quote: quote,
               address: _needsAddress ? _addressController.text.trim() : null,
               startAt: _slot!,
             ),
@@ -101,6 +139,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   @override
   Widget build(BuildContext context) {
     final artist = widget.artist;
+    final quote = _quote;
 
     return Scaffold(
       appBar: AppBar(title: Text('Book ${artist.name}')),
@@ -110,9 +149,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           const _Label('Select service'),
           RadioGroup<ArtistService>(
             groupValue: _service,
-            onChanged: (v) => setState(() => _service = v),
+            onChanged: (v) => _changeBooking(() => _service = v),
             child: Column(
-              children: artist.services
+              children: artist.mainServices
                   .map(
                     (s) => RadioListTile<ArtistService>(
                       value: s,
@@ -121,6 +160,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       title: Text(s.name,
                           style: const TextStyle(
                               color: ColorResource.colorSoftText)),
+                      subtitle: Text(
+                        formatDuration(s.durationMinutes),
+                        style: AppTextStyles.body.copyWith(fontSize: 12),
+                      ),
                       secondary: Text(
                         formatRupees(s.price),
                         style: const TextStyle(
@@ -133,6 +176,18 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                   .toList(),
             ),
           ),
+          if (artist.addOns.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const _Label('Add extras'),
+            for (final addOn in artist.addOns)
+              AddOnTile(
+                addOn: addOn,
+                quantity: _addOnQuantities[addOn.id] ?? 0,
+                onChanged: (qty) => _changeBooking(
+                  () => _addOnQuantities[addOn.id] = qty,
+                ),
+              ),
+          ],
           if (artist.serviceModes.length > 1) ...[
             const SizedBox(height: 16),
             const _Label('Where?'),
@@ -143,7 +198,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     (m) => ChoiceChip(
                       label: Text(m.label),
                       selected: _mode == m,
-                      onSelected: (_) => setState(() => _mode = m),
+                      onSelected: (_) => _changeBooking(() => _mode = m),
                     ),
                   )
                   .toList(),
@@ -169,23 +224,24 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             icon: const Icon(Icons.calendar_today_outlined, size: 18),
             label: Text(_date == null ? 'Choose date' : formatDate(_date!)),
           ),
-          if (_date != null) ...[
+          if (_date != null && quote != null) ...[
             const SizedBox(height: 16),
             const _Label('Select time'),
             _SlotPicker(
-              artistId: artist.id,
+              artist: artist,
+              quote: quote,
               day: _date!,
               selected: _slot,
               onSelected: (s) => setState(() => _slot = s),
             ),
+          ] else if (_date != null) ...[
+            const SizedBox(height: 16),
+            Text('Choose a service to see available times.',
+                style: AppTextStyles.body),
           ],
-          if (_service != null && _slot != null) ...[
+          if (quote != null && _slot != null) ...[
             const SizedBox(height: 24),
-            _Summary(
-              service: _service!,
-              slot: _slot!,
-              mode: _mode,
-            ),
+            BookingSummary(quote: quote, start: _slot!),
           ],
         ],
       ),
@@ -231,14 +287,18 @@ class _Label extends StatelessWidget {
   }
 }
 
+/// Times the chosen service fits into the artist's day: inside working hours,
+/// not on a day off, and clear of every existing booking plus the buffer.
 class _SlotPicker extends ConsumerWidget {
-  final String artistId;
+  final Artist artist;
+  final BookingQuote quote;
   final DateTime day;
   final DateTime? selected;
   final ValueChanged<DateTime> onSelected;
 
   const _SlotPicker({
-    required this.artistId,
+    required this.artist,
+    required this.quote,
     required this.day,
     required this.selected,
     required this.onSelected,
@@ -246,10 +306,10 @@ class _SlotPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bookedAsync =
-        ref.watch(bookedSlotsProvider((artistId: artistId, day: day)));
+    final takenAsync =
+        ref.watch(bookedSlotsProvider((artistId: artist.id, day: day)));
 
-    return bookedAsync.when(
+    return takenAsync.when(
       loading: () => const Padding(
         padding: EdgeInsets.all(16),
         child: Center(child: CircularProgressIndicator()),
@@ -258,77 +318,38 @@ class _SlotPicker extends ConsumerWidget {
         onPressed: () => ref.invalidate(bookedSlotsProvider),
         child: const Text("Couldn't load availability. Retry"),
       ),
-      data: (booked) {
-        final now = DateTime.now();
+      data: (taken) {
+        final starts = SlotMath.openStarts(
+          day: day,
+          hours: artist.workingHours,
+          weeklyOffDays: artist.weeklyOffDays,
+          durationMinutes: quote.durationMinutes,
+          bufferMinutes: quote.bufferMinutes,
+          taken: taken,
+          now: ref.read(clockProvider)(),
+        );
+
+        if (starts.isEmpty) {
+          return Text(
+            'No times left on this day for '
+            '${formatDuration(quote.durationMinutes)}. Try another date.',
+            style: AppTextStyles.body,
+          );
+        }
+
         return Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: AppConfig.defaultSlotHours.map((hour) {
-            final start = DateTime(day.year, day.month, day.day, hour);
-            final unavailable = booked.contains(start) || start.isBefore(now);
-            return ChoiceChip(
-              label: Text(formatTime(start)),
-              selected: selected == start,
-              onSelected: unavailable ? null : (_) => onSelected(start),
-            );
-          }).toList(),
+          children: [
+            for (final start in starts)
+              ChoiceChip(
+                label: Text(formatTime(start)),
+                selected: selected == start,
+                onSelected: (_) => onSelected(start),
+              ),
+          ],
         );
       },
-    );
-  }
-}
-
-class _Summary extends StatelessWidget {
-  final ArtistService service;
-  final DateTime slot;
-  final ServiceMode mode;
-
-  const _Summary({
-    required this.service,
-    required this.slot,
-    required this.mode,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: ColorResource.colorCards,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(service.name, style: AppTextStyles.artistName),
-          const SizedBox(height: 4),
-          Text(
-            '${formatDate(slot)} · ${formatTime(slot)} · ${mode.label}',
-            style: AppTextStyles.body,
-          ),
-          const Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Total',
-                  style: TextStyle(color: ColorResource.colorSoftText)),
-              Text(
-                formatRupees(service.price),
-                style: const TextStyle(
-                  color: ColorResource.colorPrimaryAccent,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'The artist confirms your request. Payment will be added soon.',
-            style: AppTextStyles.body.copyWith(fontSize: 12),
-          ),
-        ],
-      ),
     );
   }
 }

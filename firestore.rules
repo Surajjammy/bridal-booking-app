@@ -1,8 +1,10 @@
 rules_version = '2';
 
-// TARGET rules: they assume Firebase Auth login and an `admin` custom claim.
-// Do not deploy until phone login is in the app, or every write will be
-// denied. See docs/firestore-schema.md.
+// TARGET rules. Do not deploy until:
+//   1. phone login works in the customer app, and
+//   2. your own admin account exists in the `admins` collection
+// otherwise customers cannot book, or you cannot sign in to the admin panel.
+// See docs/firestore-schema.md.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -10,24 +12,47 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Admins are the users listed in /admins/{uid}. Only the Firebase console
+    // can add one: the rules below never allow client writes to that
+    // collection.
     function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+      return signedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // The artist's provider owner is allowed to manage that artist's bookings.
+    // `.get(key, default)` keeps a missing field from raising an error.
     function isArtistOwner(artistId) {
-      return signedIn() &&
-        get(/databases/$(database)/documents/artists/$(artistId)).data.ownerUid == request.auth.uid;
+      let providerId =
+        get(/databases/$(database)/documents/artists/$(artistId)).data.get('providerId', '');
+      return signedIn() && providerId != '' &&
+        get(/databases/$(database)/documents/providers/$(providerId)).data.get('ownerUid', '') == request.auth.uid;
+    }
+
+    match /admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
     }
 
     // Customer profiles: a user manages only their own document.
     match /users/{uid} {
-      allow read, create, update: if signedIn() && request.auth.uid == uid;
-      allow read: if isAdmin();
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow create, update: if signedIn() && request.auth.uid == uid;
     }
 
-    // Public catalogue. Only admins write (the admin panel).
+    // Business records (commission, owner). Admin only.
+    match /providers/{providerId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Admin-only artist details (contact, notes). Never readable by customers.
+    match /artistPrivate/{artistId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Public catalogue. Customers can only list artists that are active.
     match /artists/{artistId} {
-      allow read: if resource.data.isActive == true || isAdmin() || isArtistOwner(artistId);
+      allow read: if isAdmin() || resource.data.isActive == true;
       allow write: if isAdmin();
 
       match /portfolio/{itemId} {
@@ -37,25 +62,25 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      allow read: if signedIn() &&
-        (resource.data.userId == request.auth.uid ||
-         isArtistOwner(resource.data.artistId) ||
-         isAdmin());
+      allow read: if isAdmin() ||
+        (signedIn() && resource.data.userId == request.auth.uid) ||
+        isArtistOwner(resource.data.artistId);
 
       // Customers can only create a `requested` booking for themselves.
       allow create: if signedIn() &&
         request.resource.data.userId == request.auth.uid &&
         request.resource.data.status == 'requested';
 
-      // Artist confirms/declines; customer cancels. Nothing else may change.
+      // Admin or artist confirm/decline/complete; the customer may only
+      // cancel. Only `status` may change.
       allow update: if signedIn() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
         (
-          (isArtistOwner(resource.data.artistId) &&
-            request.resource.data.status in ['confirmed', 'declined', 'cancelled', 'completed']) ||
+          isAdmin() ||
           (resource.data.userId == request.auth.uid &&
             request.resource.data.status == 'cancelled') ||
-          isAdmin()
+          (isArtistOwner(resource.data.artistId) &&
+            request.resource.data.status in ['confirmed', 'declined', 'cancelled', 'completed'])
         );
 
       allow delete: if isAdmin();
