@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:makeup_booking_app/core/theme/app_theme.dart';
+import 'package:makeup_booking_app/core/widgets/connectivity_gate.dart';
 import 'package:makeup_booking_app/features/artist/presentation/screen/artist_list_screen.dart';
 
 Future<void> main() async {
@@ -31,6 +32,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Makeup Artist Booking',
       theme: AppTheme.dark,
+      builder: (context, child) => ConnectivityGate(child: child!),
       home: const ArtistListScreen(),
     );
   }
