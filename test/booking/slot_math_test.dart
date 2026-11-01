@@ -52,6 +52,59 @@ void main() {
     });
   });
 
+  group('slots', () {
+    List<TimeSlot> slots({Set<DateTime> taken = const {}}) => SlotMath.slots(
+          day: _monday,
+          hours: WorkingHours.standard,
+          weeklyOffDays: const {},
+          durationMinutes: 60,
+          bufferMinutes: 0,
+          taken: taken,
+          now: _longBefore,
+        );
+
+    test('lists every time, marking the ones that clash as unavailable', () {
+      final all = slots(taken: {_at(12)});
+      final byStart = {for (final s in all) s.start: s.available};
+
+      expect(all, hasLength(15)); // nothing is removed
+      expect(byStart[_at(11)], isTrue);
+      expect(byStart[_at(11, 30)], isFalse); // would run into the 12:00 step
+      expect(byStart[_at(12)], isFalse);
+      expect(byStart[_at(12, 30)], isTrue);
+    });
+
+    test('everything is available when nothing is booked', () {
+      expect(slots().every((s) => s.available), isTrue);
+    });
+
+    test('times already in the past are left out, not shown greyed out', () {
+      final all = SlotMath.slots(
+        day: _monday,
+        hours: WorkingHours.standard,
+        weeklyOffDays: const {},
+        durationMinutes: 60,
+        bufferMinutes: 0,
+        taken: const {},
+        now: _at(12),
+      );
+      expect(all.first.start, _at(12, 30));
+    });
+
+    test('a weekly day off has no times at all', () {
+      final all = SlotMath.slots(
+        day: _monday,
+        hours: WorkingHours.standard,
+        weeklyOffDays: const {DateTime.monday},
+        durationMinutes: 60,
+        bufferMinutes: 0,
+        taken: const {},
+        now: _longBefore,
+      );
+      expect(all, isEmpty);
+    });
+  });
+
   group('openStarts', () {
     test('offers every half hour the service still fits before closing', () {
       final starts = _open(duration: 60); // 10:00-18:00

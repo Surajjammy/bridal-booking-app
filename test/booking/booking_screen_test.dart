@@ -117,7 +117,7 @@ void main() {
     expect(quote.items.where((i) => i.isAddOn), hasLength(1));
   });
 
-  testWidgets('times that clash with an existing booking are not offered',
+  testWidgets('times that clash with an existing booking show greyed out',
       (tester) async {
     // Someone holds the 10:30 step, so a 60 + 15 minute booking cannot start
     // at 10:00 (needs 10:00, 10:30, 11:00) or at 10:30.
@@ -127,9 +127,25 @@ void main() {
     await tester.pumpAndSettle();
     await _chooseToday(tester);
 
-    expect(find.text('10:00 AM'), findsNothing);
-    expect(find.text('10:30 AM'), findsNothing);
-    expect(find.text('11:00 AM'), findsOneWidget);
+    ChoiceChip chip(String time) => tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, time),
+        );
+
+    // Still on screen, but not selectable.
+    expect(chip('10:00 AM').onSelected, isNull);
+    expect(chip('10:30 AM').onSelected, isNull);
+    expect(chip('11:00 AM').onSelected, isNotNull);
+    expect(find.text('Greyed-out times are already booked.'), findsOneWidget);
+
+    // Tapping a greyed-out time does nothing.
+    await tester.tap(find.text('10:00 AM'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.text('Total'), findsNothing);
+
+    // A free time still works.
+    await tester.tap(find.text('11:00 AM'));
+    await tester.pumpAndSettle();
+    expect(find.text('Total'), findsOneWidget);
   });
 
   testWidgets('adding an add-on after picking a time clears the time',
@@ -170,6 +186,10 @@ void main() {
     await tester.pumpAndSettle();
     await _chooseToday(tester);
 
-    expect(find.textContaining('No times left on this day'), findsOneWidget);
+    // Every time is still listed, all greyed out, with a clear message.
+    expect(find.text('Fully booked on this day. Try another date.'),
+        findsOneWidget);
+    final chips = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip));
+    expect(chips.where((c) => c.onSelected != null), isEmpty);
   });
 }

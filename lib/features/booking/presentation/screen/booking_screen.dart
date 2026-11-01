@@ -319,7 +319,7 @@ class _SlotPicker extends ConsumerWidget {
         child: const Text("Couldn't load availability. Retry"),
       ),
       data: (taken) {
-        final starts = SlotMath.openStarts(
+        final slots = SlotMath.slots(
           day: day,
           hours: artist.workingHours,
           weeklyOffDays: artist.weeklyOffDays,
@@ -329,7 +329,7 @@ class _SlotPicker extends ConsumerWidget {
           now: ref.read(clockProvider)(),
         );
 
-        if (starts.isEmpty) {
+        if (slots.isEmpty) {
           return Text(
             'No times left on this day for '
             '${formatDuration(quote.durationMinutes)}. Try another date.',
@@ -337,19 +337,79 @@ class _SlotPicker extends ConsumerWidget {
           );
         }
 
-        return Wrap(
-          spacing: 10,
-          runSpacing: 10,
+        final anyFree = slots.any((slot) => slot.available);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final start in starts)
-              ChoiceChip(
-                label: Text(formatTime(start)),
-                selected: selected == start,
-                onSelected: (_) => onSelected(start),
-              ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final slot in slots)
+                  _SlotChip(
+                    slot: slot,
+                    selected: selected == slot.start,
+                    onSelected: onSelected,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              anyFree
+                  ? 'Greyed-out times are already booked.'
+                  : 'Fully booked on this day. Try another date.',
+              style: AppTextStyles.body.copyWith(fontSize: 12),
+            ),
           ],
         );
       },
+    );
+  }
+}
+
+/// One time on the picker. A time that is already booked stays visible but
+/// greyed out and struck through, and cannot be chosen.
+class _SlotChip extends StatelessWidget {
+  final TimeSlot slot;
+  final bool selected;
+  final ValueChanged<DateTime> onSelected;
+
+  const _SlotChip({
+    required this.slot,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final label = formatTime(slot.start);
+
+    if (!slot.available) {
+      return Semantics(
+        label: '$label, already booked',
+        excludeSemantics: true,
+        child: ChoiceChip(
+          label: Text(
+            label,
+            style: TextStyle(
+              color: scheme.onSurface.withValues(alpha: 0.35),
+              decoration: TextDecoration.lineThrough,
+              decorationColor: scheme.onSurface.withValues(alpha: 0.35),
+            ),
+          ),
+          selected: false,
+          onSelected: null,
+          side: BorderSide(color: scheme.onSurface.withValues(alpha: 0.08)),
+        ),
+      );
+    }
+
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(slot.start),
     );
   }
 }

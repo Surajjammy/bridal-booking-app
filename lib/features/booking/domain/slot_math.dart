@@ -29,13 +29,16 @@ class SlotMath {
     return start.add(Duration(minutes: stepsFor(blockedMinutes) * _step));
   }
 
-  /// Start times on [day] that fit a service of [durationMinutes] plus the
-  /// artist's [bufferMinutes]:
+  /// Every start time on [day] a service of [durationMinutes] plus the
+  /// artist's [bufferMinutes] could begin at, each marked available or not:
   ///  - the service itself finishes within working hours,
   ///  - it is not on a weekly day off,
-  ///  - it starts in the future,
-  ///  - and none of the steps it needs are in [taken].
-  static List<DateTime> openStarts({
+  ///  - it starts in the future (earlier times are left out, not shown),
+  ///  - and it is available only if none of the steps it needs are in [taken].
+  ///
+  /// Times that clash with a booking are returned unavailable, so the screen
+  /// can show them greyed out instead of making them vanish.
+  static List<TimeSlot> slots({
     required DateTime day,
     required WorkingHours hours,
     required Set<int> weeklyOffDays,
@@ -51,14 +54,46 @@ class SlotMath {
     final closing = date.add(Duration(minutes: hours.endMinute));
     final blockedMinutes = durationMinutes + bufferMinutes;
 
-    final starts = <DateTime>[];
+    final slots = <TimeSlot>[];
     for (var start = opening;
         !start.add(Duration(minutes: durationMinutes)).isAfter(closing);
         start = start.add(const Duration(minutes: _step))) {
       if (!start.isAfter(now)) continue;
       final clashes = lockSteps(start, blockedMinutes).any(taken.contains);
-      if (!clashes) starts.add(start);
+      slots.add(TimeSlot(start, available: !clashes));
     }
-    return starts;
+    return slots;
   }
+
+  /// Just the start times that are free: [slots] without the unavailable ones.
+  static List<DateTime> openStarts({
+    required DateTime day,
+    required WorkingHours hours,
+    required Set<int> weeklyOffDays,
+    required int durationMinutes,
+    required int bufferMinutes,
+    required Set<DateTime> taken,
+    required DateTime now,
+  }) {
+    return [
+      for (final slot in slots(
+        day: day,
+        hours: hours,
+        weeklyOffDays: weeklyOffDays,
+        durationMinutes: durationMinutes,
+        bufferMinutes: bufferMinutes,
+        taken: taken,
+        now: now,
+      ))
+        if (slot.available) slot.start,
+    ];
+  }
+}
+
+/// A possible start time and whether it can still be booked.
+class TimeSlot {
+  final DateTime start;
+  final bool available;
+
+  const TimeSlot(this.start, {required this.available});
 }
