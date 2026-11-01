@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:makeup_booking_app/core/utils/formatters.dart';
 import 'package:makeup_booking_app/core/widgets/app_network_image.dart';
+import 'package:makeup_booking_app/features/auth/presentation/auth_guard.dart';
 import 'package:makeup_booking_app/features/booking/presentation/screen/booking_screen.dart';
 import 'package:makeup_booking_app/features/portfolio/presentation/portfolio_screen.dart';
 import 'package:makeup_booking_app/utils/app_text_styles.dart';
@@ -105,10 +106,16 @@ class ArtistDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   const _SectionTitle('Services'),
                   const SizedBox(height: 10),
-                  if (artist.services.isEmpty)
+                  if (artist.mainServices.isEmpty)
                     Text('Services coming soon.', style: AppTextStyles.body)
                   else
-                    ...artist.services.map(_ServiceTile.new),
+                    ...artist.mainServices.map(_ServiceTile.new),
+                  if (artist.addOns.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    const _SectionTitle('Extras you can add'),
+                    const SizedBox(height: 10),
+                    ...artist.addOns.map(_ServiceTile.new),
+                  ],
                   const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -168,14 +175,17 @@ class ArtistDetailScreen extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: ElevatedButton(
-            onPressed: artist.services.isEmpty
+            onPressed: artist.mainServices.isEmpty
                 ? null
-                : () => Navigator.push(
-                      context,
+                : () async {
+                    final navigator = Navigator.of(context);
+                    if (!await ensureLoggedIn(context, ref)) return;
+                    navigator.push(
                       MaterialPageRoute(
                         builder: (_) => BookingScreen(artist: artist),
                       ),
-                    ),
+                    );
+                  },
             child: const Text('Book Now'),
           ),
         ),
@@ -231,8 +241,7 @@ class _ServiceTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${service.durationMinutes ~/ 60}h ${service.durationMinutes % 60}m'
-                      .replaceAll(' 0m', ''),
+                  formatDuration(service.durationMinutes),
                   style: AppTextStyles.body.copyWith(fontSize: 12),
                 ),
               ],

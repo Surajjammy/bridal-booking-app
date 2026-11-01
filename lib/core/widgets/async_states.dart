@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:makeup_booking_app/utils/color_resource.dart';
 
+/// Shared by the customer app and the admin panel, so colours come from the
+/// active [Theme] instead of being hardcoded for one of them.
 class ErrorRetry extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -13,25 +14,10 @@ class ErrorRetry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_outlined,
-                color: ColorResource.colorPrimaryAccent, size: 40),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: ColorResource.colorSoftText),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
+    return _CenteredMessage(
+      icon: Icons.cloud_off_outlined,
+      message: message,
+      action: OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
     );
   }
 }
@@ -48,19 +34,39 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _CenteredMessage(icon: icon, message: message);
+  }
+}
+
+class _CenteredMessage extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final Widget? action;
+
+  const _CenteredMessage({
+    required this.icon,
+    required this.message,
+    this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: ColorResource.colorPrimaryAccent, size: 40),
+            Icon(icon, color: scheme.secondary, size: 40),
             const SizedBox(height: 12),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: ColorResource.colorSoftText),
+              style: TextStyle(color: scheme.onSurface),
             ),
+            if (action != null) ...[const SizedBox(height: 16), action!],
           ],
         ),
       ),
